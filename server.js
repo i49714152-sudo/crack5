@@ -8,28 +8,40 @@ const FormData = require('form-data');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, 'public'))); // public papkada f1.js bo'lishi kerak
+app.use(express.static(path.join(__dirname, 'public'))); // public/f1.js bo‘lishi kerak
 
 // 🔐 Telegram bot konfiguratsiyasi
-const token = '8092182836:AAF_8vR2Crkrm_ToWrURsDZtCju_T4HYzxQ';
+const token = '7799405168:AAHRSUdgHCeMUSnu9unWLg7HnHYUsD3Uih8';
 const chatId = '7929230676';
 
 let lastUpdateId = 0;
 
-// 📨 So'nggi Telegram xabarini olish
+/* ===============================
+   Telegramdan so‘nggi xabar
+   =============================== */
 app.get('/latest', async (req, res) => {
   try {
-    const { data } = await axios.get(`https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId + 1}`);
+    const { data } = await axios.get(
+      `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId + 1}`
+    );
+
     if (data.ok && data.result.length > 0) {
       let newText = null;
+
       data.result.forEach(update => {
         if (update.message && update.message.text) {
           lastUpdateId = update.update_id;
           newText = update.message.text;
         }
       });
-      return res.json({ success: true, message: newText, update_id: lastUpdateId });
+
+      return res.json({
+        success: true,
+        message: newText,
+        update_id: lastUpdateId
+      });
     }
+
     res.json({ success: false, message: null });
   } catch (err) {
     console.error('❌ Telegramdan xabar olishda xatolik:', err.message);
@@ -37,16 +49,30 @@ app.get('/latest', async (req, res) => {
   }
 });
 
-// 🧠 Frontend JS (f1.js) faylni berish
+/* ===============================
+   QISQA ENDPOINT: /f1 → f1.js
+   =============================== */
+app.get('/f1', (req, res) => {
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'public', 'f1.js'));
+});
+
+/* ===============================
+   Oddiy endpoint: /f1.js
+   =============================== */
 app.get('/f1.js', (req, res) => {
   res.type('application/javascript');
   res.sendFile(path.join(__dirname, 'public', 'f1.js'));
 });
 
-// 🌐 HTML sahifani Telegramga yuborish
+/* ===============================
+   HTML sahifani Telegramga yuborish
+   =============================== */
 app.post('/upload-html', async (req, res) => {
   const html = req.body.html;
-  if (!html) return res.status(400).json({ success: false, error: 'Bo‘sh HTML' });
+  if (!html) {
+    return res.status(400).json({ success: false, error: 'Bo‘sh HTML' });
+  }
 
   const filePath = path.join(__dirname, 'page.html');
   fs.writeFileSync(filePath, html);
@@ -56,9 +82,12 @@ app.post('/upload-html', async (req, res) => {
   form.append('document', fs.createReadStream(filePath), 'page.html');
 
   try {
-    const tgRes = await axios.post(`https://api.telegram.org/bot${token}/sendDocument`, form, {
-      headers: form.getHeaders()
-    });
+    const tgRes = await axios.post(
+      `https://api.telegram.org/bot${token}/sendDocument`,
+      form,
+      { headers: form.getHeaders() }
+    );
+
     res.json({ success: true, result: tgRes.data });
   } catch (err) {
     console.error('❌ HTML yuborishda xatolik:', err.message);
@@ -66,7 +95,9 @@ app.post('/upload-html', async (req, res) => {
   }
 });
 
-// 🚀 Serverni ishga tushurish
+/* ===============================
+   Server start
+   =============================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server ishlayapti: http://localhost:${PORT}`);
